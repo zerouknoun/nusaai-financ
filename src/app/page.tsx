@@ -17,6 +17,7 @@ export default function Home() {
   const [profile, setProfile] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     category: 'Makanan',
@@ -222,8 +223,13 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-neutral-900 text-white font-sans overflow-hidden">
+      {/* Mobile Menu Backdrop */}
+      {isMobileMenuOpen && (
+        <div onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" />
+      )}
+      
       {/* Sidebar */}
-      <aside className="w-64 bg-neutral-950 border-r border-neutral-800 p-6 flex flex-col justify-between hidden md:flex">
+      <aside className={`w-64 bg-neutral-950 border-r border-neutral-800 p-6 flex flex-col justify-between fixed md:relative z-50 h-full transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <div>
           <div className="flex items-center gap-3 mb-10 text-emerald-400">
             <Activity className="w-8 h-8" />
@@ -283,9 +289,14 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 p-6 md:p-10 overflow-y-auto relative">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
-          <div>
-            <h2 className="text-3xl font-semibold mb-1">Ringkasan Keuangan</h2>
-            <p className="text-neutral-400">Terhubung secara realtime dengan Firebase 🔥</p>
+          <div className="flex justify-between items-center w-full md:w-auto">
+            <div>
+              <h2 className="text-3xl font-semibold mb-1">Ringkasan</h2>
+              <p className="text-sm md:text-base text-neutral-400">Terhubung secara realtime 🔥</p>
+            </div>
+            <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-white bg-neutral-800 rounded-lg">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
           </div>
           <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-emerald-500 text-neutral-950 px-5 py-2.5 rounded-full font-bold hover:bg-emerald-400 transition-transform active:scale-95 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
             <Plus className="w-5 h-5" />
