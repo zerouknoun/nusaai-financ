@@ -1,6 +1,7 @@
 # NusaAI Finance 🔥
 
 NusaAI Finance adalah aplikasi web pencatat keuangan modern yang dilengkapi dengan fitur PWA (Progressive Web App) dan asisten kecerdasan buatan (AI) terintegrasi menggunakan Google Gemini. Aplikasi ini berjalan secara *real-time* berkat sinkronisasi dengan Firebase.
+untuk memulai demonya bisa di https://finace-nu.vercel.app/
 
 ## Fitur Utama
 
