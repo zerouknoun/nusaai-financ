@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Tidak ada gambar yang diunggah' }, { status: 400 });
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = `Anda adalah asisten pembaca struk otomatis (OCR) cerdas.
 Tugas Anda adalah membaca gambar struk yang diberikan dan mengambil dua informasi utama:
