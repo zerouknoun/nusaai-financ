@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '../../lib/firebase';
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, update, remove } from 'firebase/database';
 import {
   Wallet, TrendingUp, TrendingDown, Activity, Bot, PieChart,
-  Home as HomeIcon, Settings, CreditCard, X, LogOut, User, Download, Filter
+  Home as HomeIcon, Settings, CreditCard, X, LogOut, User, Download, Filter, Edit2, Trash2
 } from 'lucide-react';
 
 export default function TransactionsPage() {
@@ -20,6 +20,14 @@ export default function TransactionsPage() {
   
   // Filter state
   const [filterType, setFilterType] = useState('all'); // 'all', 'in', 'out'
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    category: 'Makanan',
+    amount: '',
+    type: 'out'
+  });
 
   // Cek Status Login menggunakan Firebase Auth
   useEffect(() => {
@@ -79,6 +87,44 @@ export default function TransactionsPage() {
 
   const formatRp = (angka: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
+  };
+
+  const handleEdit = (trx: any) => {
+    setFormData({
+      name: trx.name,
+      category: trx.category,
+      amount: trx.amount.toString(),
+      type: trx.type
+    });
+    setEditId(trx.id);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Apakah Anda yakin ingin menghapus transaksi ini?")) {
+      try {
+        await remove(ref(db as any, `transactions/${user.uid}/${id}`));
+      } catch (error) {
+        alert("Gagal menghapus transaksi.");
+      }
+    }
+  };
+
+  const handleUpdateTransaction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!db || !editId) return;
+    
+    try {
+      await update(ref(db as any, `transactions/${user.uid}/${editId}`), {
+        ...formData,
+        amount: Number(formData.amount),
+      });
+      setIsModalOpen(false);
+      setEditId(null);
+      setFormData({ name: '', category: 'Makanan', amount: '', type: 'out' });
+    } catch (error) {
+      alert("Gagal menyimpan transaksi.");
+    }
   };
 
   // Filter transactions
@@ -186,14 +232,76 @@ export default function TransactionsPage() {
                     </div>
                   </div>
                 </div>
-                <span className={`font-bold text-lg ${trx.type === 'in' ? 'text-emerald-400' : 'text-white'}`}>
-                  {trx.type === 'in' ? '+' : '-'} {formatRp(trx.amount)}
-                </span>
+                <div className="flex items-center gap-4">
+                  <span className={`font-bold text-lg ${trx.type === 'in' ? 'text-emerald-400' : 'text-white'}`}>
+                    {trx.type === 'in' ? '+' : '-'} {formatRp(trx.amount)}
+                  </span>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleEdit(trx)} className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-lg transition-colors" title="Edit"><Edit2 className="w-5 h-5" /></button>
+                    <button onClick={() => handleDelete(trx.id)} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors" title="Hapus"><Trash2 className="w-5 h-5" /></button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </main>
+
+      {/* Modal Edit Transaksi */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-neutral-900 border border-neutral-700 w-full max-w-md rounded-3xl p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold">Edit Transaksi</h3>
+              <button onClick={() => { setIsModalOpen(false); setEditId(null); setFormData({ name: '', category: 'Makanan', amount: '', type: 'out' }); }} className="text-neutral-400 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
+            </div>
+            
+            <form onSubmit={handleUpdateTransaction} className="space-y-4">
+              <div>
+                <label className="block text-sm text-neutral-400 mb-1">Jenis Transaksi</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button type="button" onClick={() => setFormData({...formData, type: 'out'})} className={`py-2.5 rounded-xl font-medium transition-colors border ${formData.type === 'out' ? 'bg-red-500/20 border-red-500/50 text-red-400' : 'bg-neutral-800 border-transparent text-neutral-400 hover:bg-neutral-700'}`}>Pengeluaran</button>
+                  <button type="button" onClick={() => setFormData({...formData, type: 'in'})} className={`py-2.5 rounded-xl font-medium transition-colors border ${formData.type === 'in' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-neutral-800 border-transparent text-neutral-400 hover:bg-neutral-700'}`}>Pemasukan</button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-neutral-400 mb-1">Nama / Keterangan</label>
+                <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 text-white" placeholder="Contoh: Beli Kopi" />
+              </div>
+
+              <div>
+                <label className="block text-sm text-neutral-400 mb-1">Kategori</label>
+                <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 text-white appearance-none">
+                  {formData.type === 'out' ? (
+                    <>
+                      <option>Makanan & Minuman</option>
+                      <option>Transportasi</option>
+                      <option>Hiburan</option>
+                      <option>Tagihan</option>
+                    </>
+                  ) : (
+                    <>
+                      <option>Gaji</option>
+                      <option>Bonus</option>
+                      <option>Investasi</option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm text-neutral-400 mb-1">Nominal (Rp)</label>
+                <input required type="number" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 text-white" placeholder="Contoh: 25000" />
+              </div>
+
+              <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold py-3.5 rounded-xl mt-4 transition-colors">
+                Simpan Perubahan
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

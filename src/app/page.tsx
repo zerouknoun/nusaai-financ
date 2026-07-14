@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { ref, onValue, push } from 'firebase/database';
+import { ref, onValue, push, update, remove } from 'firebase/database';
 import {
   Wallet, TrendingUp, TrendingDown, Activity, Bot, PieChart,
-  Home as HomeIcon, Settings, CreditCard, Plus, X, LogOut, User, Download
+  Home as HomeIcon, Settings, CreditCard, Plus, X, LogOut, User, Download, Edit2, Trash2
 } from 'lucide-react';
 
 export default function Home() {
@@ -24,6 +24,7 @@ export default function Home() {
     amount: '',
     type: 'out'
   });
+  const [editId, setEditId] = useState<string | null>(null);
 
   // State AI
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -128,16 +129,45 @@ export default function Home() {
     }
     
     try {
-      await push(ref(db as any, `transactions/${user.uid}`), {
-        ...formData,
-        amount: Number(formData.amount),
-        timestamp: Date.now(), // Menggunakan timestamp client sementara
-      });
+      if (editId) {
+        await update(ref(db as any, `transactions/${user.uid}/${editId}`), {
+          ...formData,
+          amount: Number(formData.amount),
+        });
+      } else {
+        await push(ref(db as any, `transactions/${user.uid}`), {
+          ...formData,
+          amount: Number(formData.amount),
+          timestamp: Date.now(), // Menggunakan timestamp client sementara
+        });
+      }
       setIsModalOpen(false);
+      setEditId(null);
       setFormData({ name: '', category: 'Makanan', amount: '', type: 'out' });
     } catch (error) {
       console.error("Error adding transaction: ", error);
-      alert("Gagal menambah transaksi.");
+      alert("Gagal menyimpan transaksi.");
+    }
+  };
+
+  const handleEdit = (trx: any) => {
+    setFormData({
+      name: trx.name,
+      category: trx.category,
+      amount: trx.amount.toString(),
+      type: trx.type
+    });
+    setEditId(trx.id);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Apakah Anda yakin ingin menghapus transaksi ini?")) {
+      try {
+        await remove(ref(db as any, `transactions/${user.uid}/${id}`));
+      } catch (error) {
+        alert("Gagal menghapus transaksi.");
+      }
     }
   };
 
@@ -348,9 +378,15 @@ export default function Home() {
                     <p className="text-xs text-neutral-500">{trx.category} • {new Date(trx.timestamp).toLocaleDateString('id-ID', {day: 'numeric', month:'short'})}</p>
                   </div>
                 </div>
-                <span className={`font-semibold text-sm ${trx.type === 'in' ? 'text-emerald-400' : 'text-white'}`}>
-                  {trx.type === 'in' ? '+' : '-'} {formatRp(trx.amount)}
-                </span>
+                <div className="flex items-center gap-4">
+                  <span className={`font-semibold text-sm ${trx.type === 'in' ? 'text-emerald-400' : 'text-white'}`}>
+                    {trx.type === 'in' ? '+' : '-'} {formatRp(trx.amount)}
+                  </span>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleEdit(trx)} className="p-1.5 text-blue-400 hover:bg-blue-500/20 rounded-md transition-colors" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                    <button onClick={() => handleDelete(trx.id)} className="p-1.5 text-red-400 hover:bg-red-500/20 rounded-md transition-colors" title="Hapus"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -362,8 +398,8 @@ export default function Home() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-neutral-900 border border-neutral-700 w-full max-w-md rounded-3xl p-6 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold">Catat Transaksi</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-neutral-400 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
+              <h3 className="text-xl font-bold">{editId ? 'Edit Transaksi' : 'Catat Transaksi'}</h3>
+              <button onClick={() => { setIsModalOpen(false); setEditId(null); setFormData({ name: '', category: 'Makanan', amount: '', type: 'out' }); }} className="text-neutral-400 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
             </div>
             
             {/* AI Scanner Button */}
@@ -422,7 +458,7 @@ export default function Home() {
               </div>
 
               <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold py-3.5 rounded-xl mt-4 transition-colors">
-                Simpan Transaksi
+                {editId ? 'Simpan Perubahan' : 'Simpan Transaksi'}
               </button>
             </form>
           </div>
