@@ -236,7 +236,7 @@ export default function TransactionsPage() {
                   <span className={`font-bold text-lg ${trx.type === 'in' ? 'text-emerald-400' : 'text-white'}`}>
                     {trx.type === 'in' ? '+' : '-'} {formatRp(trx.amount)}
                   </span>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <button onClick={() => handleEdit(trx)} className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-lg transition-colors" title="Edit"><Edit2 className="w-5 h-5" /></button>
                     <button onClick={() => handleDelete(trx.id)} className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors" title="Hapus"><Trash2 className="w-5 h-5" /></button>
                   </div>

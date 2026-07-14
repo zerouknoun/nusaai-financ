@@ -382,7 +382,7 @@ export default function Home() {
                   <span className={`font-semibold text-sm ${trx.type === 'in' ? 'text-emerald-400' : 'text-white'}`}>
                     {trx.type === 'in' ? '+' : '-'} {formatRp(trx.amount)}
                   </span>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <button onClick={() => handleEdit(trx)} className="p-1.5 text-blue-400 hover:bg-blue-500/20 rounded-md transition-colors" title="Edit"><Edit2 className="w-4 h-4" /></button>
                     <button onClick={() => handleDelete(trx.id)} className="p-1.5 text-red-400 hover:bg-red-500/20 rounded-md transition-colors" title="Hapus"><Trash2 className="w-4 h-4" /></button>
                   </div>
