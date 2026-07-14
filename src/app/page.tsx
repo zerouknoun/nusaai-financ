@@ -24,6 +24,12 @@ export default function Home() {
     type: 'out'
   });
 
+  // State AI
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+
   // Cek Status Login menggunakan Firebase Auth
   useEffect(() => {
     if (!auth || !db) {
@@ -117,6 +123,69 @@ export default function Home() {
     router.push("/login");
   };
 
+  // Handler AI
+  const handleAnalyze = async () => {
+    setIsAiModalOpen(true);
+    setIsAnalyzing(true);
+    setAiAnalysis("");
+    
+    try {
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactions, profile })
+      });
+      const data = await response.json();
+      if (data.analysis) {
+        setAiAnalysis(data.analysis);
+      } else {
+        setAiAnalysis(data.error || "Gagal mendapatkan analisis dari AI.");
+      }
+    } catch (e) {
+      setAiAnalysis("Terjadi kesalahan jaringan saat menghubungi AI.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleScanReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsScanning(true);
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+        
+        const response = await fetch('/api/scan-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: base64 })
+        });
+        const data = await response.json();
+        
+        if (data.amount) {
+          setFormData(prev => ({
+            ...prev,
+            amount: data.amount,
+            category: data.category || prev.category,
+            type: 'out',
+            name: 'Pindai Struk Otomatis'
+          }));
+        } else {
+          alert("Gagal memindai struk. " + (data.error || ""));
+        }
+        setIsScanning(false);
+      };
+    } catch (err) {
+      console.error(err);
+      alert("Error memindai struk.");
+      setIsScanning(false);
+    }
+  };
+
   // Tampilkan layar kosong saat sedang mengecek login untuk menghindari efek berkedip
   if (isCheckingAuth) {
     return <div className="h-screen w-screen bg-neutral-950"></div>;
@@ -165,7 +234,7 @@ export default function Home() {
               <h3 className="font-semibold">AI Assistant</h3>
             </div>
             <p className="text-xs text-neutral-400 mb-4 leading-relaxed">AI siap menganalisis pola pengeluaran Anda.</p>
-            <button className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold rounded-lg text-sm transition-colors shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+            <button onClick={handleAnalyze} className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold rounded-lg text-sm transition-colors shadow-[0_0_15px_rgba(16,185,129,0.3)]">
               Tanya AI
             </button>
           </div>
@@ -252,6 +321,22 @@ export default function Home() {
               <button onClick={() => setIsModalOpen(false)} className="text-neutral-400 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
             </div>
             
+            {/* AI Scanner Button */}
+            <div className="mb-6 p-4 bg-gradient-to-r from-emerald-900/40 to-blue-900/40 border border-emerald-500/20 rounded-xl relative overflow-hidden">
+              <div className="relative z-10 flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold text-emerald-400 text-sm flex items-center gap-2">
+                    <Bot className="w-4 h-4" /> AI Scanner Struk
+                  </h4>
+                  <p className="text-xs text-neutral-400 mt-1">Otomatis baca struk Anda.</p>
+                </div>
+                <label className="cursor-pointer bg-emerald-500 text-black px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-400 transition-colors">
+                  {isScanning ? 'Membaca...' : 'Upload Foto'}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleScanReceipt} disabled={isScanning} />
+                </label>
+              </div>
+            </div>
+
             <form onSubmit={handleAddTransaction} className="space-y-4">
               <div>
                 <label className="block text-sm text-neutral-400 mb-1">Jenis Transaksi</label>
@@ -295,6 +380,32 @@ export default function Home() {
                 Simpan Transaksi
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal AI Analysis */}
+      {isAiModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-neutral-900 border border-neutral-700 w-full max-w-2xl rounded-3xl p-6 md:p-8 shadow-2xl max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-500/20 rounded-xl text-emerald-400"><Bot className="w-6 h-6" /></div>
+                <h3 className="text-xl font-bold">NusaAI Financial Advisor</h3>
+              </div>
+              <button onClick={() => setIsAiModalOpen(false)} className="text-neutral-400 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4 text-sm md:text-base text-neutral-300 leading-relaxed whitespace-pre-wrap">
+              {isAnalyzing ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <Activity className="w-8 h-8 text-emerald-400 animate-spin" />
+                  <p className="text-neutral-400 animate-pulse">Sedang menganalisis kebiasaan finansial Anda...</p>
+                </div>
+              ) : (
+                aiAnalysis
+              )}
+            </div>
           </div>
         </div>
       )}
