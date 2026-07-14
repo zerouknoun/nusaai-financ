@@ -237,8 +237,8 @@ export default function Home() {
           </div>
           <nav className="space-y-2">
             {[
-              { name: 'Dashboard', icon: HomeIcon, active: true, href: '#' },
-              { name: 'Transaksi', icon: CreditCard, active: false, href: '#' },
+              { name: 'Dashboard', icon: HomeIcon, active: true, href: '/' },
+              { name: 'Transaksi', icon: CreditCard, active: false, href: '/transaksi' },
               { name: 'Profil', icon: User, active: false, href: '/profile' },
               { name: 'Pengaturan', icon: Settings, active: false, href: '#' },
             ].map((item) => (
