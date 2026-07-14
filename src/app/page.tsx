@@ -1,14 +1,19 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { db } from '../lib/firebase';
-import { ref, onValue, push, serverTimestamp } from 'firebase/database';
+import { useRouter } from 'next/navigation';
+import { auth, db } from '../lib/firebase';
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { ref, onValue, push } from 'firebase/database';
 import {
   Wallet, TrendingUp, TrendingDown, Activity, Bot, PieChart,
-  Home as HomeIcon, Settings, CreditCard, Plus, X
+  Home as HomeIcon, Settings, CreditCard, Plus, X, LogOut
 } from 'lucide-react';
 
 export default function Home() {
+  const router = useRouter();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [user, setUser] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -18,9 +23,30 @@ export default function Home() {
     type: 'out'
   });
 
+  // Cek Status Login menggunakan Firebase Auth
+  useEffect(() => {
+    if (!auth) {
+      setIsCheckingAuth(false);
+      return;
+    }
+    
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (!currentUser) {
+        // Jika belum login, redirect ke /login
+        router.push("/login");
+      } else {
+        // Jika sudah login, izinkan masuk
+        setUser(currentUser);
+        setIsCheckingAuth(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
   // Ambil data dari Firebase secara Realtime
   useEffect(() => {
-    if (!db) return; // Mencegah error jika firebase belum dikonfigurasi dengan benar
+    if (!db || isCheckingAuth) return; 
     const txRef = ref(db, 'transactions');
     const unsubscribe = onValue(txRef, (snapshot) => {
       const data = snapshot.val();
@@ -72,6 +98,18 @@ export default function Home() {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
   };
 
+  const handleLogout = async () => {
+    if (auth) {
+      await signOut(auth);
+    }
+    router.push("/login");
+  };
+
+  // Tampilkan layar kosong saat sedang mengecek login untuk menghindari efek berkedip
+  if (isCheckingAuth) {
+    return <div className="h-screen w-screen bg-neutral-950"></div>;
+  }
+
   return (
     <div className="flex h-screen bg-neutral-900 text-white font-sans overflow-hidden">
       {/* Sidebar */}
@@ -96,14 +134,21 @@ export default function Home() {
           </nav>
         </div>
         
-        <div className="bg-gradient-to-tr from-emerald-900/40 to-emerald-900/10 p-5 rounded-2xl border border-emerald-800/30">
-          <div className="flex items-center gap-3 mb-2">
-            <Bot className="text-emerald-400 w-6 h-6" />
-            <h3 className="font-semibold">AI Assistant</h3>
+        <div className="mt-auto">
+          <div className="bg-gradient-to-tr from-emerald-900/40 to-emerald-900/10 p-5 rounded-2xl border border-emerald-800/30 mb-4">
+            <div className="flex items-center gap-3 mb-2">
+              <Bot className="text-emerald-400 w-6 h-6" />
+              <h3 className="font-semibold">AI Assistant</h3>
+            </div>
+            <p className="text-xs text-neutral-400 mb-4 leading-relaxed">AI siap menganalisis pola pengeluaran Anda.</p>
+            <button className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold rounded-lg text-sm transition-colors shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+              Tanya AI
+            </button>
           </div>
-          <p className="text-xs text-neutral-400 mb-4 leading-relaxed">AI siap menganalisis pola pengeluaran Anda.</p>
-          <button className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold rounded-lg text-sm transition-colors shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-            Tanya AI
+          
+          <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors font-medium">
+            <LogOut className="w-5 h-5" />
+            Keluar (Logout)
           </button>
         </div>
       </aside>
