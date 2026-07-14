@@ -33,7 +33,7 @@ export default function RegisterPage() {
 
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      router.push("/");
+      router.push("/profile");
     } catch (error: any) {
       console.error("Error pendaftaran:", error);
       alert("Gagal mendaftar: " + error.message);
@@ -48,7 +48,7 @@ export default function RegisterPage() {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      router.push("/");
+      router.push("/profile");
     } catch (error: any) {
       console.error("Google Register error:", error);
       alert("Gagal mendaftar dengan Google: " + error.message);

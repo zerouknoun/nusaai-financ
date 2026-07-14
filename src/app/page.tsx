@@ -7,13 +7,14 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { ref, onValue, push } from 'firebase/database';
 import {
   Wallet, TrendingUp, TrendingDown, Activity, Bot, PieChart,
-  Home as HomeIcon, Settings, CreditCard, Plus, X, LogOut
+  Home as HomeIcon, Settings, CreditCard, Plus, X, LogOut, User
 } from 'lucide-react';
 
 export default function Home() {
   const router = useRouter();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -25,19 +26,30 @@ export default function Home() {
 
   // Cek Status Login menggunakan Firebase Auth
   useEffect(() => {
-    if (!auth) {
+    if (!auth || !db) {
       setIsCheckingAuth(false);
       return;
     }
     
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
         // Jika belum login, redirect ke /login
         router.push("/login");
       } else {
-        // Jika sudah login, izinkan masuk
         setUser(currentUser);
-        setIsCheckingAuth(false);
+        // Cek apakah pengguna sudah memiliki profil di database
+        const { get } = await import("firebase/database");
+        const userRef = ref(db as any, `users/${currentUser.uid}`);
+        const snapshot = await get(userRef);
+        
+        if (!snapshot.exists() || !snapshot.val().name) {
+          // Pengguna baru atau belum mengatur profil, lempar ke /profile
+          router.push("/profile");
+        } else {
+          // Pengguna lama, simpan data profil dan izinkan masuk
+          setProfile(snapshot.val());
+          setIsCheckingAuth(false);
+        }
       }
     });
 
@@ -46,8 +58,8 @@ export default function Home() {
 
   // Ambil data dari Firebase secara Realtime
   useEffect(() => {
-    if (!db || isCheckingAuth) return; 
-    const txRef = ref(db, 'transactions');
+    if (!db || isCheckingAuth || !user) return; 
+    const txRef = ref(db as any, `transactions/${user.uid}`);
     const unsubscribe = onValue(txRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -65,7 +77,7 @@ export default function Home() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [isCheckingAuth, user]);
 
   // Hitung total saldo, pemasukan, pengeluaran
   const pemasukan = transactions.filter(t => t.type === 'in').reduce((acc, curr) => acc + Number(curr.amount), 0);
@@ -80,7 +92,7 @@ export default function Home() {
     }
     
     try {
-      await push(ref(db, 'transactions'), {
+      await push(ref(db as any, `transactions/${user.uid}`), {
         ...formData,
         amount: Number(formData.amount),
         timestamp: Date.now(), // Menggunakan timestamp client sementara
@@ -121,12 +133,12 @@ export default function Home() {
           </div>
           <nav className="space-y-2">
             {[
-              { name: 'Dashboard', icon: HomeIcon, active: true },
-              { name: 'Transaksi', icon: CreditCard, active: false },
-              { name: 'Analisis', icon: PieChart, active: false },
-              { name: 'Pengaturan', icon: Settings, active: false },
+              { name: 'Dashboard', icon: HomeIcon, active: true, href: '#' },
+              { name: 'Transaksi', icon: CreditCard, active: false, href: '#' },
+              { name: 'Profil', icon: User, active: false, href: '/profile' },
+              { name: 'Pengaturan', icon: Settings, active: false, href: '#' },
             ].map((item) => (
-              <a key={item.name} href="#" className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${item.active ? 'bg-emerald-500/10 text-emerald-400 font-medium' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white'}`}>
+              <a key={item.name} href={item.href} className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${item.active ? 'bg-emerald-500/10 text-emerald-400 font-medium' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white'}`}>
                 <item.icon className="w-5 h-5" />
                 {item.name}
               </a>
@@ -135,6 +147,18 @@ export default function Home() {
         </div>
         
         <div className="mt-auto">
+          {profile && (
+            <div className="flex items-center gap-3 px-4 py-3 mb-4 bg-neutral-900/50 rounded-xl border border-neutral-800">
+              <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold">
+                {profile.name?.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">{profile.name}</p>
+                <p className="text-xs text-neutral-400">{profile.job || 'Pengguna NusaAI'}</p>
+              </div>
+            </div>
+          )}
+
           <div className="bg-gradient-to-tr from-emerald-900/40 to-emerald-900/10 p-5 rounded-2xl border border-emerald-800/30 mb-4">
             <div className="flex items-center gap-3 mb-2">
               <Bot className="text-emerald-400 w-6 h-6" />
