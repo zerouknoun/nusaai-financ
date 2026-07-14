@@ -9,7 +9,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Gemini API Key belum dikonfigurasi' }, { status: 500 });
     }
 
-    const { imageBase64 } = await req.json();
+    const { imageBase64, mimeType } = await req.json();
     
     if (!imageBase64) {
       return NextResponse.json({ error: 'Tidak ada gambar yang diunggah' }, { status: 400 });
@@ -30,7 +30,7 @@ Keluarkan hasil ANDA HANYA dalam format JSON persis seperti ini (tanpa backticks
       {
         inlineData: {
           data: imageBase64,
-          mimeType: 'image/jpeg' // Kita asumsikan jpeg/png/webp, gemini mendukung ini
+          mimeType: mimeType || 'image/jpeg' 
         }
       }
     ]);
