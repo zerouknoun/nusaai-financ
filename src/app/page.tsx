@@ -7,7 +7,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { ref, onValue, push } from 'firebase/database';
 import {
   Wallet, TrendingUp, TrendingDown, Activity, Bot, PieChart,
-  Home as HomeIcon, Settings, CreditCard, Plus, X, LogOut, User
+  Home as HomeIcon, Settings, CreditCard, Plus, X, LogOut, User, Download
 } from 'lucide-react';
 
 export default function Home() {
@@ -29,6 +29,32 @@ export default function Home() {
   const [aiAnalysis, setAiAnalysis] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+
+  // State PWA Install
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+
+  // PWA Install Prompt Listener
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+      setIsInstallable(false);
+    }
+  };
 
   // Cek Status Login menggunakan Firebase Auth
   useEffect(() => {
@@ -239,6 +265,13 @@ export default function Home() {
             </button>
           </div>
           
+          {isInstallable && (
+            <button onClick={handleInstallClick} className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-colors font-medium mb-4 shadow-[0_0_15px_rgba(37,99,235,0.4)]">
+              <Download className="w-5 h-5" />
+              Install Aplikasi
+            </button>
+          )}
+
           <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors font-medium">
             <LogOut className="w-5 h-5" />
             Keluar (Logout)
