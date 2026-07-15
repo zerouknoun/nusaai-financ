@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 const WidgetPlugin = registerPlugin<any>('WidgetPlugin');
@@ -28,6 +28,16 @@ export default function Home() {
     type: 'out'
   });
   const [editId, setEditId] = useState<string | null>(null);
+
+  // State Target Tabungan
+  const [goals, setGoals] = useState<any[]>([]);
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [goalForm, setGoalForm] = useState({ purpose: '', targetAmount: '', currentAmount: '' });
+
+  // State Utang
+  const [debts, setDebts] = useState<any[]>([]);
+  const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
+  const [debtForm, setDebtForm] = useState({ name: '', totalAmount: '', monthlyInstallment: '', durationMonths: '' });
 
   // State AI
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -90,16 +100,13 @@ export default function Home() {
   // Ambil data dari Firebase secara Realtime
   useEffect(() => {
     if (!db || isCheckingAuth || !user) return; 
+    
+    // Transaksi
     const txRef = ref(db as any, `transactions/${user.uid}`);
-    const unsubscribe = onValue(txRef, (snapshot) => {
+    const unsubscribeTx = onValue(txRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        // Format object object menjadi array
-        const formattedData = Object.keys(data).map(key => ({
-          id: key,
-          ...data[key]
-        }));
-        // Urutkan dari yang terbaru
+        const formattedData = Object.keys(data).map(key => ({ id: key, ...data[key] }));
         formattedData.sort((a, b) => b.timestamp - a.timestamp);
         setTransactions(formattedData);
       } else {
@@ -107,8 +114,63 @@ export default function Home() {
       }
     });
 
-    return () => unsubscribe();
+    // Target Tabungan
+    const goalsRef = ref(db as any, `goals/${user.uid}`);
+    const unsubscribeGoals = onValue(goalsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) setGoals(Object.keys(data).map(key => ({ id: key, ...data[key] })));
+      else setGoals([]);
+    });
+
+    // Utang
+    const debtsRef = ref(db as any, `debts/${user.uid}`);
+    const unsubscribeDebts = onValue(debtsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) setDebts(Object.keys(data).map(key => ({ id: key, ...data[key] })));
+      else setDebts([]);
+    });
+
+    return () => {
+      unsubscribeTx();
+      unsubscribeGoals();
+      unsubscribeDebts();
+    };
   }, [isCheckingAuth, user]);
+
+  // Logika Auto-deduct Utang
+  const hasCheckedDebts = useRef(false);
+  useEffect(() => {
+    if (!db || !user || debts.length === 0 || hasCheckedDebts.current) return;
+    hasCheckedDebts.current = true;
+    
+    const checkDebts = async () => {
+      const currentMonth = new Date().toISOString().slice(0, 7); // Format: 'YYYY-MM'
+      
+      debts.forEach(async (debt) => {
+        if (debt.paidMonths >= debt.durationMonths) return; // Lunas
+        
+        if (debt.lastPaidMonth !== currentMonth) {
+          try {
+            await push(ref(db as any, `transactions/${user.uid}`), {
+              name: `Cicilan Otomatis: ${debt.name}`,
+              category: 'Tagihan',
+              amount: Number(debt.monthlyInstallment),
+              type: 'out',
+              timestamp: Date.now(),
+            });
+            await update(ref(db as any, `debts/${user.uid}/${debt.id}`), {
+              paidMonths: Number(debt.paidMonths) + 1,
+              lastPaidMonth: currentMonth
+            });
+          } catch (e) {
+            console.error("Auto deduct failed", e);
+          }
+        }
+      });
+    };
+    
+    checkDebts();
+  }, [debts, user]);
 
   // Hitung total saldo, pemasukan, pengeluaran
   const pemasukan = transactions.filter(t => t.type === 'in').reduce((acc, curr) => acc + Number(curr.amount), 0);
@@ -190,6 +252,51 @@ export default function Home() {
     }
   };
 
+  const handleAddGoal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!db || !user) return;
+    try {
+      await push(ref(db as any, `goals/${user.uid}`), {
+        purpose: goalForm.purpose,
+        targetAmount: Number(goalForm.targetAmount),
+        currentAmount: Number(goalForm.currentAmount),
+        timestamp: Date.now()
+      });
+      setIsGoalModalOpen(false);
+      setGoalForm({ purpose: '', targetAmount: '', currentAmount: '' });
+    } catch(err) { alert("Gagal menyimpan target"); }
+  };
+
+  const handleDeleteGoal = async (id: string) => {
+    if(confirm("Hapus target tabungan ini?")) {
+      await remove(ref(db as any, `goals/${user.uid}/${id}`));
+    }
+  };
+
+  const handleAddDebt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!db || !user) return;
+    try {
+      await push(ref(db as any, `debts/${user.uid}`), {
+        name: debtForm.name,
+        totalAmount: Number(debtForm.totalAmount),
+        monthlyInstallment: Number(debtForm.monthlyInstallment),
+        durationMonths: Number(debtForm.durationMonths),
+        paidMonths: 0,
+        lastPaidMonth: "", 
+        timestamp: Date.now()
+      });
+      setIsDebtModalOpen(false);
+      setDebtForm({ name: '', totalAmount: '', monthlyInstallment: '', durationMonths: '' });
+    } catch(err) { alert("Gagal menyimpan utang"); }
+  };
+
+  const handleDeleteDebt = async (id: string) => {
+    if(confirm("Hapus catatan utang ini?")) {
+      await remove(ref(db as any, `debts/${user.uid}/${id}`));
+    }
+  };
+
   // Format ke Rupiah
   const formatRp = (angka: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
@@ -229,7 +336,7 @@ export default function Home() {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transactions, profile })
+        body: JSON.stringify({ transactions, profile, goals, debts })
       });
       const data = await response.json();
       if (data.analysis) {
@@ -395,6 +502,67 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Target Tabungan & Utang Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+          {/* Target Tabungan */}
+          <div className="bg-neutral-800/30 backdrop-blur-md border border-neutral-700/50 p-6 rounded-3xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold">Target Tabungan</h3>
+              <button onClick={() => setIsGoalModalOpen(true)} className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30 transition-colors"><Plus className="w-5 h-5"/></button>
+            </div>
+            <div className="space-y-4">
+              {goals.length === 0 ? (
+                <p className="text-neutral-500 text-sm">Belum ada target tabungan.</p>
+              ) : goals.map((goal) => {
+                const percent = Math.min(100, Math.round((goal.currentAmount / goal.targetAmount) * 100));
+                return (
+                  <div key={goal.id} className="bg-neutral-900/50 p-4 rounded-xl border border-neutral-700/50 relative overflow-hidden group">
+                    <button onClick={() => handleDeleteGoal(goal.id)} className="absolute top-2 right-2 p-1.5 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4"/></button>
+                    <h4 className="font-medium text-sm mb-1">{goal.purpose}</h4>
+                    <div className="flex justify-between text-xs text-neutral-400 mb-2">
+                      <span className="text-emerald-400">{formatRp(goal.currentAmount)}</span>
+                      <span>Target: {formatRp(goal.targetAmount)}</span>
+                    </div>
+                    <div className="w-full bg-neutral-800 rounded-full h-2.5">
+                      <div className="bg-emerald-500 h-2.5 rounded-full transition-all duration-1000" style={{ width: `${percent}%` }}></div>
+                    </div>
+                    <p className="text-xs text-emerald-400 mt-2 text-right font-medium">{percent}% Terkumpul</p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Utang & Cicilan */}
+          <div className="bg-neutral-800/30 backdrop-blur-md border border-neutral-700/50 p-6 rounded-3xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold">Tanggungan Utang</h3>
+              <button onClick={() => setIsDebtModalOpen(true)} className="p-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"><Plus className="w-5 h-5"/></button>
+            </div>
+            <div className="space-y-4">
+              {debts.length === 0 ? (
+                <p className="text-neutral-500 text-sm">Tidak ada catatan utang.</p>
+              ) : debts.map((debt) => {
+                const percent = Math.min(100, Math.round((debt.paidMonths / debt.durationMonths) * 100));
+                return (
+                  <div key={debt.id} className="bg-neutral-900/50 p-4 rounded-xl border border-neutral-700/50 relative overflow-hidden group">
+                    <button onClick={() => handleDeleteDebt(debt.id)} className="absolute top-2 right-2 p-1.5 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4"/></button>
+                    <h4 className="font-medium text-sm mb-1">{debt.name} <span className="text-xs font-normal text-neutral-400 ml-1">({debt.paidMonths}/{debt.durationMonths} bln)</span></h4>
+                    <div className="flex justify-between text-xs text-neutral-400 mb-2">
+                      <span className="text-red-400">Cicilan: {formatRp(debt.monthlyInstallment)}/bln</span>
+                      <span>Total: {formatRp(debt.totalAmount)}</span>
+                    </div>
+                    <div className="w-full bg-neutral-800 rounded-full h-2.5">
+                      <div className="bg-red-500 h-2.5 rounded-full transition-all duration-1000" style={{ width: `${percent}%` }}></div>
+                    </div>
+                    <p className="text-xs text-red-400 mt-2 text-right font-medium">{percent}% Lunas</p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
         {/* Transactions List */}
         <div className="bg-neutral-800/30 backdrop-blur-md border border-neutral-700/50 p-6 rounded-3xl mb-10">
           <div className="flex justify-between items-center mb-6">
@@ -496,6 +664,67 @@ export default function Home() {
               <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold py-3.5 rounded-xl mt-4 transition-colors">
                 {editId ? 'Simpan Perubahan' : 'Simpan Transaksi'}
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Tambah Target Tabungan */}
+      {isGoalModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-neutral-900 border border-neutral-700 w-full max-w-md rounded-3xl p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold">Target Tabungan</h3>
+              <button onClick={() => setIsGoalModalOpen(false)} className="text-neutral-400 hover:text-white"><X className="w-6 h-6" /></button>
+            </div>
+            <form onSubmit={handleAddGoal} className="space-y-4">
+              <div>
+                <label className="block text-sm text-neutral-400 mb-1">Tujuan / Untuk Apa</label>
+                <input required type="text" value={goalForm.purpose} onChange={e => setGoalForm({...goalForm, purpose: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500" placeholder="Contoh: Beli Laptop Baru" />
+              </div>
+              <div>
+                <label className="block text-sm text-neutral-400 mb-1">Target Nominal (Rp)</label>
+                <input required type="number" value={goalForm.targetAmount} onChange={e => setGoalForm({...goalForm, targetAmount: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500" placeholder="Contoh: 10000000" />
+              </div>
+              <div>
+                <label className="block text-sm text-neutral-400 mb-1">Uang Terkumpul Saat Ini (Rp)</label>
+                <input required type="number" value={goalForm.currentAmount} onChange={e => setGoalForm({...goalForm, currentAmount: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500" placeholder="Contoh: 2000000" />
+              </div>
+              <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold py-3.5 rounded-xl mt-4 transition-colors">Simpan Target</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Tambah Utang */}
+      {isDebtModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-neutral-900 border border-neutral-700 w-full max-w-md rounded-3xl p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold">Catat Utang</h3>
+              <button onClick={() => setIsDebtModalOpen(false)} className="text-neutral-400 hover:text-white"><X className="w-6 h-6" /></button>
+            </div>
+            <form onSubmit={handleAddDebt} className="space-y-4">
+              <div>
+                <label className="block text-sm text-neutral-400 mb-1">Nama Utang</label>
+                <input required type="text" value={debtForm.name} onChange={e => setDebtForm({...debtForm, name: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500" placeholder="Contoh: KPR Rumah / Cicilan Motor" />
+              </div>
+              <div>
+                <label className="block text-sm text-neutral-400 mb-1">Total Utang (Rp)</label>
+                <input required type="number" value={debtForm.totalAmount} onChange={e => setDebtForm({...debtForm, totalAmount: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500" placeholder="Contoh: 15000000" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-neutral-400 mb-1">Cicilan / Bulan (Rp)</label>
+                  <input required type="number" value={debtForm.monthlyInstallment} onChange={e => setDebtForm({...debtForm, monthlyInstallment: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500" placeholder="1000000" />
+                </div>
+                <div>
+                  <label className="block text-sm text-neutral-400 mb-1">Lama (Bulan)</label>
+                  <input required type="number" value={debtForm.durationMonths} onChange={e => setDebtForm({...debtForm, durationMonths: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500" placeholder="12" />
+                </div>
+              </div>
+              <p className="text-xs text-neutral-500 mt-2">*Cicilan akan otomatis dipotong setiap bulan saat Anda membuka aplikasi.</p>
+              <button type="submit" className="w-full bg-red-500 hover:bg-red-400 text-white font-bold py-3.5 rounded-xl mt-4 transition-colors">Simpan Utang</button>
             </form>
           </div>
         </div>

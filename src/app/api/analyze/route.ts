@@ -9,7 +9,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Gemini API Key belum dikonfigurasi' }, { status: 500 });
     }
 
-    const { transactions, profile } = await req.json();
+    const { transactions, profile, goals, debts } = await req.json();
 
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
@@ -19,12 +19,19 @@ Profil Pengguna: ${profile?.name || 'Pengguna'}, Pekerjaan: ${profile?.job || 'T
 Data Transaksi Bulan Ini (JSON):
 ${JSON.stringify(transactions)}
 
+Target Tabungan (JSON):
+${JSON.stringify(goals || [])}
+
+Tanggungan Utang (JSON):
+${JSON.stringify(debts || [])}
+
 Tugas Anda:
 Berikan analisis singkat dan gaya bahasa yang ramah (seperti ngobrol dengan teman yang jago finansial).
 Analisis harus mencakup:
 1. Ringkasan Pemasukan vs Pengeluaran.
 2. Kebiasaan atau kategori pengeluaran terbesar yang perlu diwaspadai.
-3. 2-3 Tips atau Strategi Finansial spesifik yang bisa dilakukan bulan depan berdasarkan data di atas.
+3. Analisis apakah pengguna bisa mencapai Target Tabungannya dan apakah beban Utangnya aman/sehat.
+4. 2-3 Tips atau Strategi Finansial spesifik yang bisa dilakukan bulan depan berdasarkan data di atas.
 
 Jangan gunakan markdown panjang yang rumit, cukup gunakan paragraf dan list biasa yang rapi. Jangan gunakan tag HTML.`;
 
