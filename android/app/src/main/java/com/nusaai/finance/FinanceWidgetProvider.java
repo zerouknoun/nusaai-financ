@@ -24,22 +24,32 @@ public class FinanceWidgetProvider extends AppWidgetProvider {
 
         // Access Capacitor Preferences data
         SharedPreferences prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
-        String saldoStr = prefs.getString("widget_saldo", "0");
-        String pemasukanStr = prefs.getString("widget_pemasukan", "0");
-        String pengeluaranStr = prefs.getString("widget_pengeluaran", "0");
+        String isLoggedIn = prefs.getString("widget_is_logged_in", "false");
+        
+        if ("true".equals(isLoggedIn)) {
+            views.setViewVisibility(R.id.layout_data, android.view.View.VISIBLE);
+            views.setViewVisibility(R.id.layout_login_prompt, android.view.View.GONE);
+            
+            String saldoStr = prefs.getString("widget_saldo", "0");
+            String pemasukanStr = prefs.getString("widget_pemasukan", "0");
+            String pengeluaranStr = prefs.getString("widget_pengeluaran", "0");
 
-        try {
-            double saldo = Double.parseDouble(saldoStr);
-            double pemasukan = Double.parseDouble(pemasukanStr);
-            double pengeluaran = Double.parseDouble(pengeluaranStr);
+            try {
+                double saldo = Double.parseDouble(saldoStr);
+                double pemasukan = Double.parseDouble(pemasukanStr);
+                double pengeluaran = Double.parseDouble(pengeluaranStr);
 
-            views.setTextViewText(R.id.tv_saldo, formatRp(saldo));
-            views.setTextViewText(R.id.tv_pemasukan, formatRp(pemasukan));
-            views.setTextViewText(R.id.tv_pengeluaran, formatRp(pengeluaran));
-        } catch (NumberFormatException e) {
-            views.setTextViewText(R.id.tv_saldo, "Rp 0");
-            views.setTextViewText(R.id.tv_pemasukan, "Rp 0");
-            views.setTextViewText(R.id.tv_pengeluaran, "Rp 0");
+                views.setTextViewText(R.id.tv_saldo, formatRp(saldo));
+                views.setTextViewText(R.id.tv_pemasukan, formatRp(pemasukan));
+                views.setTextViewText(R.id.tv_pengeluaran, formatRp(pengeluaran));
+            } catch (NumberFormatException e) {
+                views.setTextViewText(R.id.tv_saldo, "Rp 0");
+                views.setTextViewText(R.id.tv_pemasukan, "Rp 0");
+                views.setTextViewText(R.id.tv_pengeluaran, "Rp 0");
+            }
+        } else {
+            views.setViewVisibility(R.id.layout_data, android.view.View.GONE);
+            views.setViewVisibility(R.id.layout_login_prompt, android.view.View.VISIBLE);
         }
 
         // Instruct the widget manager to update the widget

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -126,9 +127,14 @@ export default function Home() {
   useEffect(() => {
     const saveToPreferences = async () => {
       try {
+        await Preferences.set({ key: 'widget_is_logged_in', value: 'true' });
         await Preferences.set({ key: 'widget_saldo', value: saldo.toString() });
         await Preferences.set({ key: 'widget_pemasukan', value: pemasukan.toString() });
         await Preferences.set({ key: 'widget_pengeluaran', value: pengeluaran.toString() });
+        
+        if (Capacitor.isNativePlatform() && Capacitor.Plugins.WidgetPlugin) {
+          await Capacitor.Plugins.WidgetPlugin.updateWidget();
+        }
       } catch (e) {
         console.error('Failed to save to Preferences', e);
       }
@@ -194,6 +200,19 @@ export default function Home() {
   };
 
   const handleLogout = async () => {
+    try {
+      await Preferences.set({ key: 'widget_is_logged_in', value: 'false' });
+      await Preferences.set({ key: 'widget_saldo', value: '0' });
+      await Preferences.set({ key: 'widget_pemasukan', value: '0' });
+      await Preferences.set({ key: 'widget_pengeluaran', value: '0' });
+      
+      if (Capacitor.isNativePlatform() && Capacitor.Plugins.WidgetPlugin) {
+        await Capacitor.Plugins.WidgetPlugin.updateWidget();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    
     if (auth) {
       await signOut(auth);
     }
