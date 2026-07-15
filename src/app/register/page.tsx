@@ -6,8 +6,9 @@ import { Activity, Mail, Lock, User, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 import { auth } from "../../lib/firebase";
-import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signInWithCredential } from "firebase/auth";
 import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -45,16 +46,26 @@ export default function RegisterPage() {
   const handleGoogleRegister = async () => {
     if (!auth) return;
 
-    if (Capacitor.isNativePlatform()) {
-      alert("Pendaftaran dengan Google saat ini tidak didukung di dalam Aplikasi Android karena alasan keamanan WebView. Silakan gunakan Pendaftaran dengan Email & Sandi.");
-      return;
-    }
-    
     setIsLoading(true);
-    const provider = new GoogleAuthProvider();
+
     try {
-      await signInWithPopup(auth, provider);
-      router.push("/profile");
+      if (Capacitor.isNativePlatform()) {
+        // Native Android Google Login
+        const result = await FirebaseAuthentication.signInWithGoogle();
+        const idToken = result.credential?.idToken;
+        
+        if (!idToken) throw new Error("ID Token tidak ditemukan dari Google.");
+
+        // Sign in to Firebase Web SDK with the native token
+        const credential = GoogleAuthProvider.credential(idToken);
+        await signInWithCredential(auth, credential);
+        router.push("/profile");
+      } else {
+        // Web Google Login
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+        router.push("/profile");
+      }
     } catch (error: any) {
       console.error("Google Register error:", error);
       alert("Gagal mendaftar dengan Google: " + error.message);

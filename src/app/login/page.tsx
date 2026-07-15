@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { Activity, Mail, Lock, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { auth } from "../../lib/firebase";
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signInWithCredential } from "firebase/auth";
 import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -37,16 +38,26 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     if (!auth) return;
     
-    if (Capacitor.isNativePlatform()) {
-      alert("Login dengan Google saat ini tidak didukung di dalam Aplikasi Android karena alasan keamanan. Silakan gunakan Login dengan Email & Sandi.");
-      return;
-    }
-    
     setIsLoading(true);
-    const provider = new GoogleAuthProvider();
+
     try {
-      await signInWithPopup(auth, provider);
-      router.push("/");
+      if (Capacitor.isNativePlatform()) {
+        // Native Android Google Login
+        const result = await FirebaseAuthentication.signInWithGoogle();
+        const idToken = result.credential?.idToken;
+        
+        if (!idToken) throw new Error("ID Token tidak ditemukan dari Google.");
+
+        // Sign in to Firebase Web SDK with the native token
+        const credential = GoogleAuthProvider.credential(idToken);
+        await signInWithCredential(auth, credential);
+        router.push("/");
+      } else {
+        // Web Google Login
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+        router.push("/");
+      }
     } catch (error: any) {
       console.error("Google Login error:", error);
       alert("Gagal masuk dengan Google: " + error.message);

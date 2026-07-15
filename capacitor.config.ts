@@ -5,8 +5,14 @@ const config: CapacitorConfig = {
   appName: 'NusaAI Finance',
   webDir: 'out',
   server: {
-    url: 'https://nusaai-finance.vercel.app',
+    url: 'https://finace-nu.vercel.app',
     cleartext: true
+  },
+  plugins: {
+    FirebaseAuthentication: {
+      skipNativeAuth: false,
+      providers: ["google.com"]
+    }
   }
 };
 
