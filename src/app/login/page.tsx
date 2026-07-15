@@ -6,6 +6,7 @@ import { Activity, Mail, Lock, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { auth } from "../../lib/firebase";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { Capacitor } from '@capacitor/core';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,6 +36,11 @@ export default function LoginPage() {
 
   const handleGoogleLogin = async () => {
     if (!auth) return;
+    
+    if (Capacitor.isNativePlatform()) {
+      alert("Login dengan Google saat ini tidak didukung di dalam Aplikasi Android karena alasan keamanan. Silakan gunakan Login dengan Email & Sandi.");
+      return;
+    }
     
     setIsLoading(true);
     const provider = new GoogleAuthProvider();

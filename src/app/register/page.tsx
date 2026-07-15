@@ -7,6 +7,7 @@ import Link from "next/link";
 
 import { auth } from "../../lib/firebase";
 import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { Capacitor } from '@capacitor/core';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -43,6 +44,11 @@ export default function RegisterPage() {
 
   const handleGoogleRegister = async () => {
     if (!auth) return;
+
+    if (Capacitor.isNativePlatform()) {
+      alert("Pendaftaran dengan Google saat ini tidak didukung di dalam Aplikasi Android karena alasan keamanan WebView. Silakan gunakan Pendaftaran dengan Email & Sandi.");
+      return;
+    }
     
     setIsLoading(true);
     const provider = new GoogleAuthProvider();
