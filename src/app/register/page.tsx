@@ -51,7 +51,9 @@ export default function RegisterPage() {
     try {
       if (Capacitor.isNativePlatform()) {
         // Native Android Google Login
-        const result = await FirebaseAuthentication.signInWithGoogle();
+        const result = await FirebaseAuthentication.signInWithGoogle({
+          clientId: "636550165234-umteocmiojnvc2n1m3sghd4tlp2pk7oa.apps.googleusercontent.com"
+        });
         const idToken = result.credential?.idToken;
         
         if (!idToken) throw new Error("ID Token tidak ditemukan dari Google.");
