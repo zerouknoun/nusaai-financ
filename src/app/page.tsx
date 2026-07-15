@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Preferences } from '@capacitor/preferences';
 import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { ref, onValue, push, update, remove } from 'firebase/database';
@@ -120,6 +121,22 @@ export default function Home() {
   const pemasukan = transactions.filter(t => t.type === 'in').reduce((acc, curr) => acc + Number(curr.amount), 0);
   const pengeluaran = transactions.filter(t => t.type === 'out').reduce((acc, curr) => acc + Number(curr.amount), 0);
   const saldo = pemasukan - pengeluaran;
+
+  // Simpan data ke Capacitor Preferences (Android SharedPreferences) untuk dibaca Widget
+  useEffect(() => {
+    const saveToPreferences = async () => {
+      try {
+        await Preferences.set({ key: 'widget_saldo', value: saldo.toString() });
+        await Preferences.set({ key: 'widget_pemasukan', value: pemasukan.toString() });
+        await Preferences.set({ key: 'widget_pengeluaran', value: pengeluaran.toString() });
+      } catch (e) {
+        console.error('Failed to save to Preferences', e);
+      }
+    };
+    if (!isCheckingAuth && user) {
+      saveToPreferences();
+    }
+  }, [saldo, pemasukan, pengeluaran, isCheckingAuth, user]);
 
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
