@@ -51,17 +51,8 @@ export default function Home() {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) {
-      alert("Sistem otomatis belum siap atau Anda menggunakan browser yang butuh cara manual (seperti Safari di iPhone).\n\nCara Manual:\n- iPhone (Safari): Tekan tombol 'Share' (Bagikan) di bawah layar, lalu pilih 'Add to Home Screen' (Tambahkan ke Layar Utama).\n- Android/Chrome: Tekan ikon titik tiga di kanan atas browser, lalu pilih 'Install App' atau 'Add to Home Screen'.");
-      return;
-    }
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setDeferredPrompt(null);
-      setIsInstallable(false);
-    }
+  const handleInstallClick = () => {
+    window.open('https://drive.google.com/file/d/1kO6X3HXxd_tU49KQENKxeCfGAlXDeEl9/view?usp=sharing', '_blank');
   };
 
   // Cek Status Login menggunakan Firebase Auth
@@ -351,7 +342,7 @@ export default function Home() {
           
           <button onClick={handleInstallClick} className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-colors font-medium mb-4 shadow-[0_0_15px_rgba(37,99,235,0.4)]">
             <Download className="w-5 h-5" />
-            Install Aplikasi
+            Download Aplikasi (APK)
           </button>
 
           <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors font-medium">
