@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+const WidgetPlugin = registerPlugin<any>('WidgetPlugin');
 import { Preferences } from '@capacitor/preferences';
 import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -132,8 +133,12 @@ export default function Home() {
         await Preferences.set({ key: 'widget_pemasukan', value: pemasukan.toString() });
         await Preferences.set({ key: 'widget_pengeluaran', value: pengeluaran.toString() });
         
-        if (Capacitor.isNativePlatform() && Capacitor.Plugins.WidgetPlugin) {
-          await Capacitor.Plugins.WidgetPlugin.updateWidget();
+        if (Capacitor.isNativePlatform()) {
+          try {
+            await WidgetPlugin.updateWidget();
+          } catch(e) {
+            console.error("Widget update error", e);
+          }
         }
       } catch (e) {
         console.error('Failed to save to Preferences', e);
@@ -206,8 +211,12 @@ export default function Home() {
       await Preferences.set({ key: 'widget_pemasukan', value: '0' });
       await Preferences.set({ key: 'widget_pengeluaran', value: '0' });
       
-      if (Capacitor.isNativePlatform() && Capacitor.Plugins.WidgetPlugin) {
-        await Capacitor.Plugins.WidgetPlugin.updateWidget();
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await WidgetPlugin.updateWidget();
+        } catch(e) {
+          console.error("Widget update error", e);
+        }
       }
     } catch (e) {
       console.error(e);
